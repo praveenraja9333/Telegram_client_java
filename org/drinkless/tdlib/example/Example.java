@@ -9,12 +9,8 @@ package org.drinkless.tdlib.example;
 import org.drinkless.tdlib.Client;
 import org.drinkless.tdlib.TdApi;
 
-import java.io.BufferedReader;
-import java.io.IOError;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.NavigableSet;
-import java.util.TreeSet;
+import java.io.*;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -54,8 +50,15 @@ public final class Example {
     private static final String newLine = System.getProperty("line.separator");
     private static final String commandsLine = "Enter command (gcs - GetChats, gc <chatId> - GetChat, me - GetMe, sm <chatId> <message> - SendMessage, lo - LogOut, q - Quit): ";
     private static volatile String currentPrompt = null;
+    private static boolean checkForPublish = false;
+    private static String  ADMIN ="1570707914";
+    private static String CHANNELID="1570707914";
+
+    static String germanyStop_details  ="C:\\Users\\Praveen\\AppData\\Roaming\\MetaQuotes\\Terminal\\Common\\Files\\Signals\\ger40\\stop_details";
+    static String us100Stop_details  ="C:\\Users\\Praveen\\AppData\\Roaming\\MetaQuotes\\Terminal\\Common\\Files\\Signals\\us100\\stop_details";
 
     private String chatIds="1570707914";
+
 
 
     private static void print(String str) {
@@ -207,8 +210,12 @@ public final class Example {
     }
 
     private static void getCommand() {
+        //892079421: Srikanth Mimecast
+        //-1002343156759: Trend-Chasers
+        //1570707914: Keerthika Ravindran
+        //777000: Telegram
         //String command = promptString(commandsLine);
-        String command ="gc -1002343156759";
+        String command ="gc 892079421";
         String[] commands = command.split(" ", 2);
         try {
             switch (commands[0]) {
@@ -247,6 +254,52 @@ public final class Example {
             print("Not enough arguments");
         }
     }
+
+    private static void getCommand_admin_signal(){
+        orderDetailsPublishOnExit();
+        client.send(new TdApi.GetChat(getChatId(ADMIN)), defaultHandler);
+        client.send(new TdApi.GetChat(getChatId(CHANNELID)), defaultHandler);
+    }
+
+
+
+    public static void orderDetailsPublishOnExit(){
+            if(isCheckForPublish()){
+                try {
+                    List<String> processLines=processDetails();
+                    for(String message:processLines){
+                        sendMessage(getChatId(ADMIN), message);
+                    }
+                } catch (FileNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
+                setCheckForPublish(false);
+            }
+    }
+
+    public static List<String> processDetails() throws FileNotFoundException {
+            List<String> list =new ArrayList<>() ;
+            File file=new File(germanyStop_details);
+            if(file.exists())  {
+                Scanner scanner=new Scanner(new FileReader(germanyStop_details));
+                while(scanner.hasNextLine()) {
+                    list.add(scanner.nextLine());
+                }
+                file.deleteOnExit();
+                scanner.close();
+            }
+            file= new File(us100Stop_details);
+            if(file.exists())  {
+                Scanner scanner=new Scanner(new FileReader(us100Stop_details));
+                while(scanner.hasNextLine()) {
+                    list.add(scanner.nextLine());
+             }
+                file.deleteOnExit();
+                scanner.close();
+            }
+           return list;
+    }
+
 
     private static void getMainChatList(final int limit) {
         synchronized (mainChatList) {
@@ -328,13 +381,22 @@ public final class Example {
             }
 
             while (haveAuthorization) {
-                getCommand();
+                //getCommand();
+                getCommand_admin_signal();
                 Thread.sleep(20000);
             }
         }
         while (!canQuit) {
             Thread.sleep(1);
         }
+    }
+
+    public static boolean isCheckForPublish() {
+        return checkForPublish;
+    }
+
+    public static void setCheckForPublish(boolean checkForPublish) {
+        Example.checkForPublish = checkForPublish;
     }
 
     private static class OrderedChat implements Comparable<OrderedChat> {
@@ -369,8 +431,10 @@ public final class Example {
         @Override
         public void onResult(TdApi.Object object) {
            try {
-               if(object instanceof TdApi.Chat)
-                sIgnal.processSignal((TdApi.Chat)object);
+              if(object instanceof TdApi.Chat)
+                  if(!sIgnal.processHalt((TdApi.Chat)object)) {
+                      sIgnal.processSignal((TdApi.Chat)object);
+                  }
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
