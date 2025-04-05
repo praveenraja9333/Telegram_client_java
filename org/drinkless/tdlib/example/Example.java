@@ -8,6 +8,7 @@ package org.drinkless.tdlib.example;
 
 import org.drinkless.tdlib.Client;
 import org.drinkless.tdlib.TdApi;
+import vrp.product.telegram.copier.Copier;
 
 import java.io.*;
 import java.util.*;
@@ -30,6 +31,7 @@ public final class Example {
     private static volatile boolean canQuit = false;
 
     private static final Client.ResultHandler defaultHandler = new DefaultHandler();
+    private static final Client.ResultHandler copierHandler = new CopyHandler();
 
     private static final Lock authorizationLock = new ReentrantLock();
     private static final Condition gotAuthorization = authorizationLock.newCondition();
@@ -51,13 +53,14 @@ public final class Example {
     private static final String commandsLine = "Enter command (gcs - GetChats, gc <chatId> - GetChat, me - GetMe, sm <chatId> <message> - SendMessage, lo - LogOut, q - Quit): ";
     private static volatile String currentPrompt = null;
     private static boolean checkForPublish = false;
-    private static String  ADMIN ="1570707914";
-    private static String CHANNELID="1570707914";
+    private static String  ADMIN ="892079421";
+    private static String CHANNELID="892079421";
+    private static final boolean isCopierEnabled = true;
 
     static String germanyStop_details  ="C:\\Users\\Praveen\\AppData\\Roaming\\MetaQuotes\\Terminal\\Common\\Files\\Signals\\ger40\\stop_details";
     static String us100Stop_details  ="C:\\Users\\Praveen\\AppData\\Roaming\\MetaQuotes\\Terminal\\Common\\Files\\Signals\\us100\\stop_details";
 
-    private String chatIds="1570707914";
+    private String chatIds="892079421";
 
 
 
@@ -186,7 +189,7 @@ public final class Example {
         return result;
     }
 
-    private static long getChatId(String arg) {
+    public static long getChatId(String arg) {
         long chatId = 0;
         try {
             chatId = Long.parseLong(arg);
@@ -259,6 +262,16 @@ public final class Example {
         orderDetailsPublishOnExit();
         client.send(new TdApi.GetChat(getChatId(ADMIN)), defaultHandler);
         client.send(new TdApi.GetChat(getChatId(CHANNELID)), defaultHandler);
+        if(Example.isCopierEnabled){
+           getMessage_copier();
+        }
+    }
+
+    public static void getMessage_copier(){
+        for(Long sender: Copier.getSenders()) {
+            client.send(new TdApi.GetChat(sender), copierHandler);
+            Copier.clearProcessedSenders();
+        }
     }
 
 
@@ -344,7 +357,7 @@ public final class Example {
         }
     }
 
-    private static void sendMessage(long chatId, String message) {
+    public static void sendMessage(long chatId, String message) {
         // initialize reply markup just for testing
         TdApi.InlineKeyboardButton[] row = {new TdApi.InlineKeyboardButton("https://telegram.org?1", new TdApi.InlineKeyboardButtonTypeUrl()), new TdApi.InlineKeyboardButton("https://telegram.org?2", new TdApi.InlineKeyboardButtonTypeUrl()), new TdApi.InlineKeyboardButton("https://telegram.org?3", new TdApi.InlineKeyboardButtonTypeUrl())};
         TdApi.ReplyMarkup replyMarkup = new TdApi.ReplyMarkupInlineKeyboard(new TdApi.InlineKeyboardButton[][]{row, row, row});
@@ -383,7 +396,7 @@ public final class Example {
             while (haveAuthorization) {
                 //getCommand();
                 getCommand_admin_signal();
-                Thread.sleep(20000);
+                Thread.sleep(2000);
             }
         }
         while (!canQuit) {
@@ -397,6 +410,10 @@ public final class Example {
 
     public static void setCheckForPublish(boolean checkForPublish) {
         Example.checkForPublish = checkForPublish;
+    }
+
+    public static boolean isIsCopierEnabled() {
+        return isCopierEnabled;
     }
 
     private static class OrderedChat implements Comparable<OrderedChat> {
@@ -437,6 +454,18 @@ public final class Example {
                   }
             } catch (IOException e) {
                 throw new RuntimeException(e);
+            }
+            //print(object.toString());
+
+        }
+    }
+
+    private static class CopyHandler implements Client.ResultHandler {
+        private DecideSIgnal signal=new DecideSIgnal();
+        @Override
+        public void onResult(TdApi.Object object) {
+            if(object instanceof TdApi.Chat){
+                signal.processSingalsForCopier((TdApi.Chat)object);
             }
             //print(object.toString());
 
